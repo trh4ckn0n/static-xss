@@ -1,92 +1,46 @@
-document.getElementById('startTest').addEventListener('click', async () => {
-  const wordlistFile = document.getElementById('wordlist').files[0];
-  let payloads = [];
+document.getElementById('startBtn').addEventListener('click', async () => {
+  const targetsFile = document.getElementById('targetsFile').files[0];
+  const payloadsFile = document.getElementById('payloadsFile').files[0];
+  const output = document.getElementById('output');
+  output.textContent = '';
 
-  if (wordlistFile) {
-    payloads = await readWordlist(wordlistFile);
-  } else {
-    payloads = await fetchDefaultWordlist();
+  if (!targetsFile) {
+    output.textContent = 'Veuillez charger un fichier de cibles JSON.';
+    return;
   }
 
-  const targets = await fetchTargets();
-  const results = [];
+  const targetsText = await targetsFile.text();
+  let targets;
+  try {
+    targets = JSON.parse(targetsText);
+  } catch (e) {
+    output.textContent = 'Le fichier de cibles n\'est pas un JSON valide.';
+    return;
+  }
+
+  let payloads = [];
+  if (payloadsFile) {
+    const payloadsText = await payloadsFile.text();
+    payloads = payloadsText.split('\n').filter(line => line.trim() !== '');
+  } else {
+    const defaultPayloadsText = await fetch('default_wordlist.txt').then(res => res.text());
+    payloads = defaultPayloadsText.split('\n').filter(line => line.trim() !== '');
+  }
 
   for (const [url, params] of Object.entries(targets)) {
-    for (const param in params) {
+    for (const [param, values] of Object.entries(params)) {
       for (const payload of payloads) {
-        const testUrl = injectPayload(url, param, payload);
+        const testUrl = new URL(url);
+        testUrl.searchParams.set(param, payload);
         try {
-          const response = await fetch(testUrl);
-          const text = await response.text();
-          const vulnerable = analyzeResponse(text, payload);
-          results.push({
-            url: testUrl,
-            payload,
-            vulnerable
-          });
-          displayResult(testUrl, payload, vulnerable);
-        } catch (error) {
-          console.error(`Erreur lors de la requête vers ${testUrl}:`, error);
+          const response = await fetch(testUrl.toString(), { method: 'GET', mode: 'no-cors' });
+          output.textContent += `Testé : ${testUrl.toString()}\n`;
+        } catch (e) {
+          output.textContent += `Erreur lors du test de : ${testUrl.toString()}\n`;
         }
       }
     }
   }
 
-  generateReport(results);
+  output.textContent += 'Tests terminés.';
 });
-
-async function readWordlist(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const lines = reader.result.split('\n').map(line => line.trim()).filter(line => line);
-      resolve(lines);
-    };
-    reader.onerror = reject;
-    reader.readAsText(file);
-  });
-}
-
-async function fetchDefaultWordlist() {
-  const response = await fetch('default_wordlist.txt');
-  const text = await response.text();
-  return text.split('\n').map(line => line.trim()).filter(line => line);
-}
-
-async function fetchTargets() {
-  const response = await fetch('targets.json');
-  return await response.json();
-}
-
-function injectPayload(url, param, payload) {
-  const urlObj = new URL(url);
-  urlObj.searchParams.set(param, payload);
-  return urlObj.toString();
-}
-
-function analyzeResponse(responseText, payload) {
-  // Simple check: does the payload appear in the response?
-  return responseText.includes(payload);
-}
-
-function displayResult(url, payload, vulnerable) {
-  const resultsDiv = document.getElementById('results');
-  const status = vulnerable ? 'VULNÉRABLE' : 'Sain';
-  resultsDiv.innerText += `[${status}] ${url} | Payload: ${payload}\n`;
-}
-
-function generateReport(results) {
-  const csvContent = 'data:text/csv;charset=utf-8,URL,Payload,Vulnerable\n' +
-    results.map(r => `${r.url},${r.payload},${r.vulnerable}`).join('\n');
-  const encodedUri = encodeURI(csvContent);
-  const downloadButton = document.getElementById('downloadReport');
-  downloadButton.style.display = 'inline-block';
-  downloadButton.onclick = () => {
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', 'xss_report.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-}
