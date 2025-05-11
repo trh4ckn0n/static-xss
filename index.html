@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>XSS Tester - Anonymous Edition</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>XSS Tester</h1>
+    <p>Testez vos cibles pour des vulnérabilités XSS.</p>
+
+    <div class="upload-section">
+      <label for="wordlist">Charger une wordlist personnalisée :</label>
+      <input type="file" id="wordlist" accept=".txt" />
+    </div>
+
+    <button id="startTest">Démarrer les tests</button>
+
+    <div id="results"></div>
+
+    <button id="downloadReport" style="display:none;">Télécharger le rapport</button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
